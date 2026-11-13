@@ -210,11 +210,13 @@ table.hm tr.hl td.g{background:var(--sel)}
 
 <script>
 const FEATURIZERS = [
+  {id:'clf11', dir:'data/clf-icl11-bsf-a4096-gs4-l8-auto', label:'Classifier · ICL output (block 11), test rows · 4,096 atoms, gs4 × L0 8 (recommended)'},
+  {id:'reg11', dir:'data/reg-icl11-bsf-a4096-gs4-l8', label:'Regressor · ICL output (block 11), test rows · 4,096 atoms, gs4 × L0 8 (recommended)'},
   {id:'icl8w', dir:'data/clf-icl8-bsf-a4096-gs4-l8', label:'Classifier · ICL block 8 · 4,096 atoms, gs4 × L0 8 (recommended size)'},
   {id:'icl8', dir:'data/clf-icl8-bsf-gs4-l8', label:'Classifier · ICL block 8 · 8,192 atoms, gs4 × L0 8 (first pass)'},
   {id:'icl11', dir:'data/clf-icl11-bsf-gs4-l8', label:'Classifier · ICL block 11 · 8,192 atoms, gs4 × L0 8 (first pass)'},
-  {id:'reg5w', dir:'data/reg-icl5-bsf-a4096-gs4-l8', label:'Regressor · ICL block 5 · 4,096 atoms, gs4 × L0 8 (recommended size)'},
   {id:'reg5', dir:'data/reg-icl5-bsf-gs4-l8', label:'Regressor · ICL block 5 · 8,192 atoms, gs4 × L0 8 (first pass)'},
+  {id:'reg5w', dir:'data/reg-icl5-bsf-a4096-gs4-l8', label:'Regressor · ICL block 5 · 4,096 atoms, gs4 × L0 8 (recommended size)'},
 ];
 const TILE_HELP = {"Fires on": "Share of rows on which this block is one of the 8 active blocks.", "Tables": "Number of eval tables (out of 1,500) with at least one row where the block fires.", "Train share": "Share of the block's total activation that falls on train rows, next to the share of all rows that are train rows (base). Much higher than base: a context (train-row) block; much lower: a test-row block.", "Table η²": "Share of the variance of the block's activation explained by which table a row comes from. Near 1: the block fires per table (a dataset-level feature), not per row. Highlighted at 0.6 or more.", "Direction ↔ table": "Share of the variance in the DIRECTION of the block's 4-d code explained by table identity. High (highlighted at 0.5 or more) means the cloud's shape mostly separates tables, so apparent clusters may be tables rather than a concept shared across tables.", "Direction ↔ class": "Within each table, the share of the remaining direction variance explained by class index (label for train rows, prediction for test rows). High means that inside a table the block points different ways for different classes. In-sample, so inflated for rare blocks.", "Mean norm": "Average activation strength (code norm) when the block fires, in the dictionary's input units."};
 const isReg = ()=> !!(S.manifest && S.manifest.meta.kind==='reg');
