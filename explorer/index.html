@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>TabICL Block Explorer</title>
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: tool UI. Sticky block index on the left, block inspector on the right (stacks on phones). A row is the "token"; its table is the context. */
+:root{
+  --bg:#fbfcfd; --panel:#ffffff; --ink:#14171c; --ink-2:#454b56; --ink-3:#6a717c; --rule:#dde1e7; --grid:#eceef2;
+  --accent:#1d5fb0; --tint:#edf2f9; --sel:#e3ecf8;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#6250d6; --s8:#e34948;
+  --ref:#7b818b; --mute:#c6cbd3; --seq-lo:#cde2fb; --seq-hi:#0d366b; --div-mid:#f0efec; --div-neg:#2a78d6; --div-pos:#e34948;
+  --f-ui:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#121417; --panel:#171a1e; --ink:#eceef1; --ink-2:#b9bec7; --ink-3:#8c929c; --rule:#2c3137; --grid:#22262c;
+  --accent:#7fb2f2; --tint:#17202b; --sel:#1d2a3a;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  --ref:#8c929c; --mute:#3a3f47; --seq-lo:#2b4c78; --seq-hi:#b7d3f6; --div-mid:#383835; --div-neg:#3987e5; --div-pos:#e66767; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#121417; --panel:#171a1e; --ink:#eceef1; --ink-2:#b9bec7; --ink-3:#8c929c; --rule:#2c3137; --grid:#22262c;
+  --accent:#7fb2f2; --tint:#17202b; --sel:#1d2a3a;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  --ref:#8c929c; --mute:#3a3f47; --seq-lo:#2b4c78; --seq-hi:#b7d3f6; --div-mid:#383835; --div-neg:#3987e5; --div-pos:#e66767; color-scheme:dark }
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--f-ui);font-size:14px;line-height:1.45;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:0 40px}
+button,select,input{font:inherit;color:var(--ink)}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding-block:14px 12px;border-bottom:1px solid var(--rule);margin-bottom:14px}
+.bar h1{font-size:18px;font-weight:600;margin:0 8px 0 0;letter-spacing:-.005em}
+.bar label{color:var(--ink-3);font-size:13px;margin-right:6px}
+select,input[type=text]{background:var(--panel);border:1px solid var(--rule);border-radius:5px;padding:5px 8px;max-width:100%}
+input[type=text]{width:90px}
+.bar .help{margin-left:auto;color:var(--ink-3);font-size:13px}
+.app{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.app{grid-template-columns:minmax(0,1fr)}}
+.side{position:sticky;top:env(safe-area-inset-top, 0px);display:flex;flex-direction:column;gap:8px;max-height:100vh;min-width:0}
+@media (max-width:860px){.side{position:static;max-height:none}}
+.side .ctl{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;color:var(--ink-3)}
+.side .ctl select{font-size:13px;padding:4px 6px}
+.list{overflow-y:auto;border:1px solid var(--rule);border-radius:6px;background:var(--panel);flex:1 1 auto;min-height:200px}
+@media (max-width:860px){.list{max-height:44vh}}
+.item{display:grid;grid-template-columns:38px minmax(0,1fr);gap:4px 10px;padding:7px 10px;border-bottom:1px solid var(--grid);cursor:pointer;align-items:center;background:none;border-left:0;border-right:0;border-top:0;width:100%;text-align:left}
+.item:hover{background:var(--tint)} .item[aria-current="true"]{background:var(--sel)}
+.item canvas{width:38px;height:38px;border-radius:3px;grid-row:span 2}
+.item .l1{display:flex;gap:8px;align-items:baseline;min-width:0}
+.item .gid{font-family:var(--f-mono);font-weight:500;font-size:13px}
+.item .fr{font-family:var(--f-mono);font-size:12px;color:var(--ink-3);margin-left:auto}
+.item .l2{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:1px 7px;border-radius:9px;border:1px solid var(--rule);color:var(--ink-2);white-space:nowrap}
+.chip i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:14px 16px;min-width:0}
+.card h3{font-size:13px;font-weight:600;margin:0 0 8px;color:var(--ink);letter-spacing:.01em}
+.card .sub{font-size:12.5px;color:var(--ink-3);margin:-4px 0 8px}
+.head{display:flex;flex-direction:column;gap:10px}
+.head .t{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.head h2{font-size:24px;font-weight:600;margin:0}
+.head h2 .mono{font-weight:500}
+.diag{font-size:13.5px;color:var(--ink-2);margin:0;max-width:820px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px}
+.tile{border:1px solid var(--grid);border-radius:6px;padding:7px 10px;background:var(--bg)}
+.tile .k{font-size:11.5px;color:var(--ink-3);letter-spacing:.02em}
+.tile .v{font-family:var(--f-mono);font-size:16px;font-weight:500;margin-top:1px}
+.tile .v small{font-size:11.5px;color:var(--ink-3);font-weight:400;margin-left:4px}
+.tile.warn{border-color:var(--s4)}
+.grid2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+@media (max-width:1100px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.ctrls{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:8px;font-size:13px;color:var(--ink-3)}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.seg button{background:transparent;border:0;padding:4px 10px;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.tog{background:var(--bg);border:1px solid var(--rule);border-radius:6px;padding:4px 10px;font-size:12.5px;color:var(--ink-3);cursor:pointer}
+.tog[aria-pressed="true"]{border-color:var(--ink-2);color:var(--ink)}
+.tog[aria-pressed="true"]::before{content:"● ";color:var(--s3)}
+canvas.sc.grab{cursor:grab} canvas.sc.grabbing{cursor:grabbing}
+.cv{position:relative;width:100%}
+canvas.sc{display:block;width:100%;aspect-ratio:1/1;height:auto;max-width:100%;touch-action:none;cursor:crosshair}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--ink-2);margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%}
+.legend i.bx{border-radius:2px;width:11px}
+.legend .grad{width:110px;height:8px;border-radius:2px}
+.corr{display:grid;grid-template-columns:minmax(0,1fr) 120px 52px;gap:5px 10px;align-items:center;font-size:13px}
+.corr .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+.corr .tr{height:10px;position:relative;background:var(--grid);border-radius:2px}
+.corr .tr b{position:absolute;top:0;bottom:0;border-radius:2px}
+.corr .tr::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;border-left:1px solid var(--ink-3)}
+.corr .rv{font-family:var(--f-mono);font-size:12.5px;text-align:right}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:13px}
+.kv dt{color:var(--ink-3)} .kv dd{margin:0}
+.nb{display:flex;flex-wrap:wrap;gap:6px}
+.nb button{background:var(--bg);border:1px solid var(--rule);border-radius:6px;padding:3px 8px;font-size:12.5px;cursor:pointer;display:inline-flex;gap:6px;align-items:baseline}
+.nb button:hover{border-color:var(--accent)}
+.nb button .mono{font-weight:500}
+.nb button small{color:var(--ink-3);font-family:var(--f-mono);font-size:11.5px}
+svg.hs{display:block;width:100%;height:auto;overflow:visible}
+svg.hs text{font-family:var(--f-mono);font-size:10.5px;fill:var(--ink-3)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tabs button{background:var(--bg);border:1px solid var(--rule);border-radius:6px;padding:5px 10px;font-size:12.5px;cursor:pointer;text-align:left;line-height:1.3}
+.tabs button[aria-selected="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.tabs button small{display:block;color:var(--ink-3);font-size:11.5px}
+.tview{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,300px);gap:16px;align-items:start}
+@media (max-width:980px){.tview{grid-template-columns:minmax(0,1fr)}}
+.hm-wrap{overflow-x:auto;max-width:100%}
+table.hm{border-collapse:separate;border-spacing:1px;font-size:12px}
+table.hm th{font-weight:500;color:var(--ink-3);font-family:var(--f-mono);font-size:10.5px;padding:0 2px 3px;text-align:center;white-space:nowrap}
+table.hm td{padding:0;height:17px;min-width:17px;text-align:center}
+table.hm td.g{padding:0 6px;white-space:nowrap;font-family:var(--f-mono);font-size:11.5px;color:var(--ink-2);text-align:right}
+table.hm td.sp{font-family:var(--f-ui);font-size:11px;text-align:left}
+table.hm td.act{min-width:64px;text-align:left;padding-right:6px}
+table.hm td.act b{display:inline-block;height:9px;border-radius:2px;vertical-align:middle}
+table.hm td.f{width:17px;border-radius:2px}
+table.hm tr.sep td{height:10px;font-size:11px;color:var(--ink-3);text-align:left;padding-top:6px;font-family:var(--f-ui)}
+table.hm tr:hover td.g{color:var(--ink)}
+table.hm tr.hl td.g{background:var(--sel)}
+.note{font-size:12.5px;color:var(--ink-3);margin:6px 0 0}
+.tip{position:absolute;pointer-events:none;background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.14);padding:7px 9px;font-size:12px;line-height:1.45;z-index:6;min-width:140px}
+.tip .h{color:var(--ink-3);font-size:11.5px;margin-bottom:2px}
+.tip .r{display:flex;gap:8px;white-space:nowrap} .tip .r b{font-family:var(--f-mono);font-weight:500;min-width:40px}
+.empty{color:var(--ink-3);padding:40px 0;text-align:center}
+.legend-head{font-size:12px;color:var(--ink-3);margin-right:4px}
+</style>
+
+<div class="bar">
+  <h1>TabICL Block Explorer</h1>
+  <span><label for="bsfSel">Featurizer</label><select id="bsfSel"></select></span>
+  <span><label for="goto">Block</label><input type="text" id="goto" inputmode="numeric" placeholder="e.g. 1506"></span>
+  <span class="help">Each point is a table row; its context is the table it came from.</span>
+</div>
+
+<div class="app">
+  <aside class="side" aria-label="Block index">
+    <div class="ctl">
+      <span><label for="sortSel">Sort</label> <select id="sortSel">
+        <option value="freq">Firing rate</option><option value="eta2">Table concentration</option>
+        <option value="dir_tab">Direction set by table</option><option value="lift">Class-index lift</option>
+        <option value="top_r">Strongest correlation</option><option value="g">Block number</option></select></span>
+      <span><label for="roleSel">Show</label> <select id="roleSel">
+        <option value="all">All roles</option><option value="class">Class index</option><option value="dataset">Dataset-level</option>
+        <option value="var">Tracks a variable</option><option value="weak">No clear role</option></select></span>
+    </div>
+    <div class="ctl" id="count"></div>
+    <div class="list" id="list" role="listbox" aria-label="Blocks"></div>
+  </aside>
+
+  <main class="main" id="main">
+    <div class="empty" id="loading">Loading featurizer…</div>
+  </main>
+</div>
+
+<template id="tplBlock">
+  <section class="card head">
+    <div class="t"><h2>Block <span class="mono" data-f="gid"></span></h2><span data-f="role"></span><span class="chip" data-f="fsite"></span></div>
+    <p class="diag" data-f="diag"></p>
+    <div class="tiles" data-f="tiles"></div>
+  </section>
+  <div class="grid2">
+    <section class="card">
+      <h3>Code cloud</h3>
+      <p class="sub" data-f="cloudsub"></p>
+      <div class="ctrls">
+        <span class="seg" role="group" aria-label="View" data-f="axes"></span>
+        <button type="button" class="tog" data-f="spin" aria-pressed="true">Auto-rotate</button>
+        <span><label for="colorSel">Colour by</label> <select id="colorSel" data-f="colorSel"></select></span>
+      </div>
+      <div class="cv"><canvas class="sc" data-f="cloud" tabindex="0" aria-label="Block code cloud"></canvas></div>
+      <div class="legend" data-f="cloudLeg"></div>
+    </section>
+    <div class="stack">
+      <section class="card"><h3>Strongest metadata correlations</h3><p class="sub">Pearson r of block activation (code norm) with each variable</p><div class="corr" data-f="corr"></div></section>
+      <section class="card"><h3>Activation</h3><p class="sub">code norm when the block fires</p><div data-f="hist"></div><div class="legend"><span><i class="bx" style="background:var(--s1)"></i>train rows</span><span><i class="bx" style="background:var(--s2)"></i>test rows</span></div></section>
+      <section class="card"><h3>Class index</h3><dl class="kv" data-f="cls"></dl></section>
+      <section class="card"><h3>Neighbours</h3>
+        <p class="sub">fire together (lift over chance)</p><div class="nb" data-f="cofire"></div>
+        <p class="sub" style="margin-top:10px">closest decoder subspaces (overlap 0–1)</p><div class="nb" data-f="decoder"></div></section>
+    </div>
+  </div>
+  <section class="card">
+    <h3>Top tables</h3>
+    <p class="sub">The tables where this block’s total activation is largest. Rows where it fires come first, then a sample of rows where it does not. Feature values are z-scored on the table’s train rows.</p>
+    <div class="tabs" role="tablist" data-f="tabs"></div>
+    <div class="tview">
+      <div class="hm-wrap" data-f="hm"></div>
+      <div><div class="cv"><canvas class="sc" data-f="tpca" aria-label="Table rows in the table's own feature space"></canvas></div>
+        <div class="legend" data-f="tpcaLeg"></div><p class="note" data-f="tpcaNote"></p></div>
+    </div>
+    <div class="legend" style="margin-top:12px"><span class="legend-head">feature z</span><span class="mono">−3</span><i class="grad" style="background:linear-gradient(90deg,var(--div-neg),var(--div-mid),var(--div-pos))"></i><span class="mono">+3</span>
+      <span class="legend-head" style="margin-left:12px">activation bar colour = position in the code cloud (PCA-RGB)</span></div>
+  </section>
+</template>
+
+<script>
+const FEATURIZERS = [
+  {id:'icl8w', dir:'data/clf-icl8-bsf-a4096-gs4-l8', label:'Classifier · ICL block 8 · 4,096 atoms, gs4 × L0 8 (recommended)'},
+  {id:'icl8', dir:'data/clf-icl8-bsf-gs4-l8', label:'Classifier · ICL block 8 · 8,192 atoms, gs4 × L0 8 (first pass)'},
+  {id:'icl11', dir:'data/clf-icl11-bsf-gs4-l8', label:'Classifier · ICL block 11 · 8,192 atoms, gs4 × L0 8 (first pass)'},
+  {id:'reg5w', dir:'data/reg-icl5-bsf-a4096-gs4-l8', label:'Regressor · ICL block 5 · 4,096 atoms, gs4 × L0 8 (recommended)'},
+  {id:'reg5', dir:'data/reg-icl5-bsf-gs4-l8', label:'Regressor · ICL block 5 · 8,192 atoms, gs4 × L0 8 (first pass)'},
+];
+const isReg = ()=> !!(S.manifest && S.manifest.meta.kind==='reg');
+const CLF_COLORS = [['cls','Class index (label / prediction)'],['tr','Train vs test row'],['pm','Model confidence (test rows)'],['C','Number of classes in table'],['tab','Table (top 7)'],['kp','kNN label purity'],['oz','Row outlierness'],['n','Activation (code norm)'],['rgb','Code position (PCA-RGB)']];
+const REG_COLORS = [['yz','Target value (z within table)'],['tr','Train vs test row'],['pd','Model prediction (z, test rows)'],['iq','Predicted IQR (test rows)'],['tab','Table (top 7)'],['kp','kNN spread (z)'],['oz','Row outlierness'],['n','Activation (code norm)'],['rgb','Code position (PCA-RGB)']];
+const PRETTY = {pos:'row position', nn1_dist:'distance to nearest train row', dup:'duplicate of a train row', absz_mean:'mean |z| (atypical row)',
+  absz_max:'max |z| (outlier row)', knn_purity:'kNN label purity', knn_pmax:'kNN confidence', lin_ptrue:'linear model p(true label)',
+  class_freq:"frequency of the row's class", T_C:'table: number of classes', T_d:'table: number of features', T_n_train:'table: train rows',
+  T_train_frac:'table: train fraction', T_maj_frac:'table: majority-class share', T_class_ent:'table: class entropy', T_lin_acc:'table: linear-model accuracy',
+  T_knn_acc:'table: kNN accuracy', T_nn1_acc:'table: 1-NN accuracy', is_train:'is a train row', p_max:'model confidence', p_true:'model p(true label)',
+  p_ent:'prediction entropy', p_margin:'prediction margin', p_correct:'model correct'};
+const ROLE = r => r.startsWith('class-index (train') ? {k:'class', t:'class index · train label', c:'var(--s1)'}
+  : r.startsWith('class-index (test') ? {k:'class', t:'class index · test prediction', c:'var(--s2)'}
+  : r.startsWith('dataset-level') ? {k:'dataset', t:'dataset-level', c:'var(--s3)'}
+  : (r==='weak/unclear'||r==='unlabeled') ? {k:'weak', t:'no clear role', c:'var(--mute)'}
+  : {k:'var', t:'tracks '+(PRETTY[r]||r), c:'var(--s4)'};
+const CLS = ['var(--s1)','var(--s2)','var(--s3)','var(--s4)','var(--s5)','var(--s6)','var(--s7)','var(--s8)'];
+
+/* ---------- helpers ---------- */
+const $ = (sel, root=document) => root.querySelector(sel);
+function H(tag, attrs, parent, text){ const e = document.createElement(tag); if(attrs) for(const k in attrs){ if(k==='style') e.style.cssText = attrs[k]; else e.setAttribute(k, attrs[k]); } if(text!=null) e.textContent = text; if(parent) parent.appendChild(e); return e; }
+const pct = v => v==null ? '–' : (v*100 >= 10 ? (v*100).toFixed(0) : v*100 >= 1 ? (v*100).toFixed(1) : (v*100).toFixed(2)) + '%';
+const f2 = v => v==null ? '–' : v.toFixed(2);
+let colorCache = {};
+function css(name){ if(colorCache[name]) return colorCache[name]; const p = H('span',{style:`color:var(${name})`},document.body); const c = getComputedStyle(p).color; p.remove(); return colorCache[name] = c; }
+function cssv(v){ return v.startsWith('var(') ? css(v.slice(4,-1)) : v; }
+function rgb(c){ return c.match(/[\d.]+/g).slice(0,3).map(Number); }
+function mix(a, b, t){ const L = v=>Math.pow(v/255,2.2), G = v=>Math.round(255*Math.pow(Math.max(0,Math.min(1,v)),1/2.2)); return `rgb(${a.map((x,i)=>G(L(x)*(1-t)+L(b[i])*t)).join(',')})`; }
+function seq(t){ return mix(rgb(css('--seq-lo')), rgb(css('--seq-hi')), Math.max(0, Math.min(1, t))); }
+function div(z){ const t0 = Math.max(-1, Math.min(1, z/2.5)), t = Math.sign(t0)*Math.sqrt(Math.abs(t0)); return t < 0 ? mix(rgb(css('--div-mid')), rgb(css('--div-neg')), -t) : mix(rgb(css('--div-mid')), rgb(css('--div-pos')), t); }
+function pcaRGB(x, y, z, sc){ const f = v => Math.round(255*Math.max(0, Math.min(1, 0.5 + 0.5*v/sc))); return `rgb(${f(x)},${f(y)},${f(z)})`; }
+function tipFor(host){ let t = host.querySelector(':scope > .tip'); if(!t){ t = H('div',{class:'tip',role:'status'},host); t.hidden = true; } return t; }
+function showTip(host, tip, px, py, head, rows){
+  tip.textContent=''; H('div',{class:'h'},tip,head); for(const r of rows){ const d = H('div',{class:'r'},tip); H('b',null,d,r[0]); H('span',null,d,r[1]); }
+  tip.hidden = false; const hw = host.clientWidth, tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = px + 14; if(x + tw > hw) x = px - tw - 14; if(x < 0) x = 0; let y = py - th - 10; if(y < 0) y = py + 14;
+  tip.style.left = x+'px'; tip.style.top = y+'px';
+}
+
+/* ---------- state ---------- */
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const S = {fz:null, manifest:null, shards:{}, block:null, view:'3d', yaw:0.7, pitch:0.35, spin:!REDUCED, hovering:false, color:'cls', table:0, hlRow:null};
+const bsfSel = $('#bsfSel'), list = $('#list'), main = $('#main');
+FEATURIZERS.forEach(f=>H('option',{value:f.id},bsfSel,f.label));
+
+async function loadFeaturizer(id){
+  S.fz = FEATURIZERS.find(f=>f.id===id) || FEATURIZERS[0]; bsfSel.value = S.fz.id; S.shards = {};
+  main.textContent=''; H('div',{class:'empty'},main,'Loading featurizer…');
+  const r = await fetch(S.fz.dir + '/manifest.json'); S.manifest = await r.json();
+  renderList();
+}
+async function getBlock(g){
+  const m = S.manifest.blocks.find(b=>b.g===g); if(!m) return null;
+  if(!S.shards[m.shard]){ const r = await fetch(`${S.fz.dir}/shard_${String(m.shard).padStart(3,'0')}.json`); S.shards[m.shard] = await r.json(); }
+  return S.shards[m.shard][String(g)];
+}
+
+/* ---------- index list ---------- */
+function thumb(canvas, b64){
+  const bin = atob(b64), n = 16, dpr = window.devicePixelRatio||1; canvas.width = 38*dpr; canvas.height = 38*dpr;
+  const ctx = canvas.getContext('2d'); ctx.fillStyle = css('--bg'); ctx.fillRect(0,0,canvas.width,canvas.height);
+  const cw = canvas.width/n;
+  for(let i=0;i<n*n;i++){ const v = bin.charCodeAt(i); if(!v) continue; ctx.fillStyle = seq(0.15 + 0.85*v/255); ctx.fillRect((i%n)*cw, Math.floor(i/n)*cw, cw+0.5, cw+0.5); }
+}
+function renderList(){
+  const sort = $('#sortSel').value, role = $('#roleSel').value;
+  let bs = S.manifest.blocks.filter(b=> role==='all' || ROLE(b.role).k===role);
+  const key = {freq:b=>-b.freq, eta2:b=>-(b.eta2||0), dir_tab:b=>-(b.dir_tab||0), lift:b=>-(b.lift||0), top_r:b=>-Math.abs(b.top_r||0), g:b=>b.g}[sort];
+  bs.sort((a,b)=>key(a)-key(b));
+  $('#count').textContent = `${bs.length} of ${S.manifest.meta.n_alive} frequent blocks (of ${S.manifest.meta.n_groups.toLocaleString()}; firing on ≥ ${pct(S.manifest.meta.min_freq)} of rows)`;
+  list.textContent=''; const frag = document.createDocumentFragment();
+  for(const b of bs){
+    const it = H('button',{class:'item',role:'option','data-g':b.g,type:'button'}); const cv = H('canvas',null,it);
+    const l1 = H('div',{class:'l1'},it); H('span',{class:'gid'},l1,'#'+b.g); const R = ROLE(b.role); const ch = H('span',{class:'chip'},l1); const i = H('i',null,ch); i.style.background = R.c; ch.appendChild(document.createTextNode(R.k==='var'?'variable':R.k==='class'?'class index':R.k==='dataset'?'dataset':'unclear'));
+    H('span',{class:'fr'},l1,pct(b.freq));
+    H('div',{class:'l2'},it, b.top ? `${b.top_r>0?'+':'−'}${Math.abs(b.top_r).toFixed(2)} ${b.top}` : '');
+    it.addEventListener('click', ()=>select(b.g)); frag.appendChild(it); thumb(cv, b.thumb);
+  }
+  list.appendChild(frag); markCurrent();
+}
+function markCurrent(){ list.querySelectorAll('.item').forEach(e=>e.setAttribute('aria-current', S.block && +e.dataset.g===S.block.g ? 'true':'false')); }
+$('#sortSel').addEventListener('change', renderList); $('#roleSel').addEventListener('change', renderList);
+bsfSel.addEventListener('change', async ()=>{ await loadFeaturizer(bsfSel.value); const first = S.manifest.blocks.slice().sort((a,b)=>b.freq-a.freq)[0]; select(first.g); });
+$('#goto').addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ const g = parseInt(ev.target.value,10); if(S.manifest.blocks.some(b=>b.g===g)) select(g); else ev.target.setCustomValidity('Not a frequent block in this featurizer'), ev.target.reportValidity(); }});
+$('#goto').addEventListener('input', ev=>ev.target.setCustomValidity(''));
+
+/* ---------- block view ---------- */
+async function select(g, keepHash){
+  const b = await getBlock(g); if(!b) return; S.block = b; S.table = 0; S.hlRow = null;
+  if(!keepHash){ const h = `#${S.fz.id}-${g}`; if(location.hash !== h) history.replaceState(null,'',h); }
+  markCurrent(); const cur = list.querySelector(`[data-g="${g}"]`); if(cur) cur.scrollIntoView({block:'nearest'});
+  renderBlock();
+}
+function F(root, name){ return root.querySelector(`[data-f="${name}"]`); }
+function renderBlock(){
+  const b = S.block, st = b.stats; main.textContent=''; const root = $('#tplBlock').content.cloneNode(true); main.appendChild(root);
+  F(main,'gid').textContent = b.g; const R = ROLE(b.role); const rc = F(main,'role'); rc.className='chip'; const ri = H('i',null,rc); ri.style.background = R.c; rc.appendChild(document.createTextNode(R.t));
+  F(main,'fsite').textContent = S.fz.label;
+  // diagnosis
+  const d = [];
+  d.push(`Fires on ${pct(st.freq)} of rows across ${st.n_tables.toLocaleString()} of ${S.manifest.meta.n_tables.toLocaleString()} eval tables.`);
+  if(st.label_tr && st.label_tr.lift >= 3) d.push(`Concentrated on class index ${st.label_tr.k} (train rows by label, ${pct(st.label_tr.share)} of mass, lift ${st.label_tr.lift}×).`);
+  if(st.dir_tab != null && st.dir_tab >= 0.5) d.push(`Its code direction is mostly table identity (${pct(st.dir_tab)} of direction variance): geometry in the cloud may reflect which table a row came from rather than a shared feature.`);
+  else if(st.dir_tab != null) d.push(`Table identity explains ${pct(st.dir_tab)} of its code-direction variance${st.dir_cls!=null?`; class index explains ${pct(st.dir_cls)} of what remains within tables`:''}.`);
+  if(st.eta2 >= 0.6) d.push('Activation is set mostly per table (dataset-level).');
+  F(main,'diag').textContent = d.join(' ');
+  const tiles = F(main,'tiles');
+  const tile = (k, v, sm, warn, title)=>{ const t = H('div',{class:'tile'+(warn?' warn':''),title:title||''},tiles); H('div',{class:'k'},t,k); const vv = H('div',{class:'v'},t,v); if(sm) H('small',null,vv,sm); };
+  tile('Fires on', pct(st.freq), 'of rows');
+  tile('Tables', st.n_tables.toLocaleString(), `of ${S.manifest.meta.n_tables.toLocaleString()}`);
+  tile('Train share', pct(st.train_share), `base ${pct(st.train_base)}`, false, 'Share of total activation on train rows, vs the share of rows that are train rows');
+  tile('Table η²', f2(st.eta2), null, st.eta2>=0.6, 'Share of activation variance explained by table identity');
+  tile('Direction ↔ table', st.dir_tab==null?'–':f2(st.dir_tab), null, st.dir_tab>=0.5, 'Share of code-direction variance explained by table identity');
+  if(!isReg()) tile('Direction ↔ class', st.dir_cls==null?'–':f2(st.dir_cls), 'within table', false, 'Share of within-table code-direction variance explained by class index (label for train rows, prediction for test rows); in-sample, so inflated for rare blocks');
+  tile('Mean norm', f2(st.mean_norm));
+  // correlations
+  const corr = F(main,'corr');
+  for(const c of st.corr){ H('span',{class:'nm',title:c.name},corr,c.name); const tr = H('span',{class:'tr'},corr); const bar = H('b',null,tr); const w = Math.min(1, Math.abs(c.r))*50; bar.style.cssText = `background:${c.r>=0?'var(--div-pos)':'var(--div-neg)'};width:${w}%;${c.r>=0?'left:50%':'right:50%'}`; H('span',{class:'rv'},corr,(c.r>=0?'+':'−')+Math.abs(c.r).toFixed(2)); }
+  // class index
+  const kv = F(main,'cls'); kv.closest('section').hidden = isReg();
+  if(st.label_tr){ const add = (k,v)=>{ H('dt',null,kv,k); H('dd',null,kv,v); };
+    add('Train rows', `class ${st.label_tr.k}: ${pct(st.label_tr.share)} of activation, lift ${st.label_tr.lift}×`);
+    add('Test rows', `predicted class ${st.pred_te.k}: ${pct(st.pred_te.share)} of activation, lift ${st.pred_te.lift}×`);
+    add('Same class?', st.label_tr.k===st.pred_te.k ? 'yes: one class code for both' : 'no');
+  } else { H('dd',null,kv,'Not a classifier.'); }
+  // neighbours
+  const nb = (host, arr, fmt)=>{ for(const a of arr){ const known = S.manifest.blocks.some(x=>x.g===a[0]); const btn = H('button',{type:'button',title: known?'Open block':'Rare block (not in index)'},host); H('span',{class:'mono'},btn,'#'+a[0]); H('small',null,btn,fmt(a)); if(known) btn.addEventListener('click',()=>select(a[0])); else btn.disabled = true; } };
+  nb(F(main,'cofire'), b.cofire, a=>a[2]+'×'); nb(F(main,'decoder'), b.decoder, a=>a[1].toFixed(2));
+  if(!b.cofire.length) H('span',{class:'note'},F(main,'cofire'),'No block co-fires often enough.');
+  // cloud controls
+  const axes = F(main,'axes'), spinBtn = F(main,'spin'); const v = st.pca_var;
+  const sameView = (a,b)=> a===b || (Array.isArray(a) && Array.isArray(b) && a[0]===b[0] && a[1]===b[1]);
+  ['3d',[0,1],[0,2],[1,2]].forEach(p=>{ const bt = H('button',{type:'button','aria-pressed': String(sameView(p,S.view))},axes, p==='3d' ? '3D' : `PC${p[0]+1}·PC${p[1]+1}`);
+    bt.addEventListener('click',()=>{ S.view = p; axes.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false')); bt.setAttribute('aria-pressed','true'); spinBtn.hidden = p!=='3d'; F(main,'cloud').classList.toggle('grab', p==='3d'); drawCloud(); ensureSpin(); }); });
+  spinBtn.hidden = S.view!=='3d'; spinBtn.setAttribute('aria-pressed', String(S.spin));
+  spinBtn.addEventListener('click',()=>{ S.spin = !S.spin; spinBtn.setAttribute('aria-pressed', String(S.spin)); ensureSpin(); });
+  F(main,'cloud').classList.toggle('grab', S.view==='3d');
+  F(main,'cloudsub').textContent = `${b.cloud.x.length} sampled firings on the block’s top three principal axes (PC1 ${pct(v[0])}, PC2 ${pct(v[1])}, PC3 ${pct(v[2]||0)} of code variance). Drag or use arrow keys to rotate, double-click to reset, click a point to open its table.`;
+  const cs = F(main,'colorSel');
+  const opts = isReg() ? REG_COLORS : CLF_COLORS; opts.forEach(([k,t])=>H('option',{value:k},cs,t));
+  if(!opts.some(o=>o[0]===S.color)) S.color = opts[0][0];
+  cs.value = S.color; cs.addEventListener('change',()=>{ S.color = cs.value; drawCloud(); });
+  bindCloud(F(main,'cloud'));
+  drawCloud(); drawHist(); renderTabs(); ensureSpin();
+}
+
+/* ---------- cloud ---------- */
+function colorFn(){
+  const c = S.block.cloud, sc = S.block.cloud_scale, mode = S.color;
+  if(mode==='cls') return i=> c.c[i]>=0 && c.c[i]<8 ? cssv(CLS[c.c[i]]) : css('--ref');
+  if(mode==='tr') return i=> c.tr[i] ? css('--s1') : css('--s2');
+  if(mode==='pm') return i=> c.tr[i] ? css('--mute') : seq((c.pm[i]-0.2)/0.8);
+  if(mode==='C') return i=> seq((c.C[i]-2)/8);
+  if(mode==='kp'){ const mx = isReg() ? Math.max(1e-6, ...c.kp) : 1; return i=> seq(c.kp[i]/mx); }
+  if(mode==='yz') return i=> div(c.yl[i]);
+  if(mode==='pd') return i=> c.tr[i] ? css('--mute') : div(c.pd[i]);
+  if(mode==='iq'){ const v = c.pm.filter((x,i)=>!c.tr[i]).sort((a,b)=>a-b); const q = Math.max(1e-6, v[Math.floor(v.length*0.95)]||1); return i=> c.tr[i] ? css('--mute') : seq(c.pm[i]/q); }
+  if(mode==='oz'){ const mx = Math.max(...c.oz); return i=> seq(c.oz[i]/mx); }
+  if(mode==='n'){ const mx = Math.max(...c.n); return i=> seq(c.n[i]/mx); }
+  if(mode==='rgb') return i=> pcaRGB(c.x[i], c.y[i], c.z[i], sc);
+  if(mode==='tab'){ const cnt = {}; c.t.forEach(t=>cnt[t]=(cnt[t]||0)+1); const top = Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,7).map(e=>+e[0]); S.topTabs = top; return i=>{ const k = top.indexOf(c.t[i]); return k>=0 ? cssv(CLS[k]) : css('--mute'); }; }
+}
+function cloudLegend(){
+  const L = F(main,'cloudLeg'); L.textContent=''; const c = S.block.cloud;
+  const item = (col, t, cls)=>{ const s = H('span',null,L); const i = H('i',{class:cls||''},s); i.style.background = col; s.appendChild(document.createTextNode(t)); };
+  const grad = (lo, hi, t)=>{ const s = H('span',null,L); H('span',{class:'legend-head'},s,t); H('span',{class:'mono'},s,lo); const g = H('i',{class:'grad'},s); g.style.background = `linear-gradient(90deg,var(--seq-lo),var(--seq-hi))`; H('span',{class:'mono'},s,hi); };
+  const dgrad = t=>{ const s = H('span',null,L); H('span',{class:'legend-head'},s,t); H('span',{class:'mono'},s,'−3'); const g = H('i',{class:'grad'},s); g.style.background = 'linear-gradient(90deg,var(--div-neg),var(--div-mid),var(--div-pos))'; H('span',{class:'mono'},s,'+3'); };
+  const m = S.color;
+  if(m==='cls'){ const present = [...new Set(c.c)].filter(k=>k>=0).sort((a,b)=>a-b); present.filter(k=>k<8).forEach(k=>item(CLS[k],'class '+k)); if(present.some(k=>k>=8)) item('var(--ref)','class 8–9'); }
+  else if(m==='tr'){ item('var(--s1)','train row'); item('var(--s2)','test row'); }
+  else if(m==='pm'){ grad('0.2','1.0','confidence'); item('var(--mute)','train row (no prediction)'); }
+  else if(m==='C') grad('2','10','classes');
+  else if(m==='kp') grad('0', isReg()?'max':'1', isReg()?'kNN spread':'kNN purity');
+  else if(m==='yz'||m==='pd'){ dgrad(m==='yz'?'target z':'predicted z'); if(m==='pd') item('var(--mute)','train row (no prediction)'); }
+  else if(m==='iq'){ grad('0','high','predicted IQR'); item('var(--mute)','train row (no prediction)'); }
+  else if(m==='oz') grad('low','high','max |z|');
+  else if(m==='n') grad('0','max','norm');
+  else if(m==='rgb'){ const s = H('span',{class:'legend-head'},L,'PC1 → red, PC2 → green, PC3 → blue; same colours as the activation bars in the tables below'); }
+  else if(m==='tab'){ (S.topTabs||[]).forEach((t,k)=>item(CLS[k],'table '+t)); item('var(--mute)','other tables'); }
+}
+function bindCloud(cv){
+  const host = cv.parentElement, tip = tipFor(host); let drag = null;
+  const clampP = p => Math.max(-1.45, Math.min(1.45, p));
+  cv.addEventListener('pointerdown', ev=>{ if(S.view!=='3d') return; drag = {x:ev.clientX, y:ev.clientY, yaw:S.yaw, pitch:S.pitch, moved:false}; cv.setPointerCapture(ev.pointerId); });
+  cv.addEventListener('pointerup', ()=>{ if(drag){ cv._dragged = drag.moved; drag = null; cv.classList.remove('grabbing'); } });
+  cv.addEventListener('pointerenter', ()=>{ S.hovering = true; });
+  cv.addEventListener('dblclick', ()=>{ S.yaw = 0.7; S.pitch = 0.35; paintCloud(); });
+  cv.addEventListener('keydown', ev=>{ if(S.view!=='3d') return; const k = {ArrowLeft:[-.12,0],ArrowRight:[.12,0],ArrowUp:[0,-.12],ArrowDown:[0,.12]}[ev.key]; if(k){ S.yaw += k[0]; S.pitch = clampP(S.pitch + k[1]); paintCloud(); ev.preventDefault(); } });
+  cv.addEventListener('pointermove', ev=>{
+    const m = cv._map; if(!m) return; const r = cv.getBoundingClientRect(), px = ev.clientX-r.left, py = ev.clientY-r.top;
+    S.hovering = true;
+    if(drag){ const dx = ev.clientX-drag.x, dy = ev.clientY-drag.y; if(Math.abs(dx)+Math.abs(dy) > 3){ drag.moved = true; cv.classList.add('grabbing'); }
+      if(drag.moved){ S.yaw = drag.yaw + dx*0.01; S.pitch = clampP(drag.pitch + dy*0.01); tip.hidden = true; cv._hover = -1; paintCloud(); return; } }
+    let best=-1, bd=100; for(const i of m.order){ const dx = m.SX[i]-px, dy = m.SY[i]-py, d = dx*dx+dy*dy; if(d<=bd){bd=d;best=i;} }
+    if(best<0){ tip.hidden=true; cv._hover = -1; return; } const c = S.block.cloud;
+    const rows = [[c.n[best].toFixed(2),'activation'],[c.tr[best]?'train':'test','row split']];
+    if(isReg()){ rows.push([c.yl[best].toFixed(2),'target (z)']); if(!c.tr[best]) rows.push([c.pd[best].toFixed(2),'predicted (z)'],[c.pm[best].toFixed(2),'predicted IQR']); }
+    else { rows.push([String(c.yl[best]),'true label']); if(!c.tr[best]) rows.push([String(c.c[best]),'predicted class'],[c.pm[best].toFixed(2),'confidence']); rows.push([String(c.C[best]),'classes in table']); }
+    const inTop = S.block.tables.findIndex(t=>t.tid===c.t[best]); if(inTop>=0) rows.push(['click','show this table']);
+    showTip(host, tip, px, py, `table ${c.t[best]} · row ${c.r[best]}`, rows); cv._hover = best;
+  });
+  cv.addEventListener('pointerleave', ()=>{ tip.hidden = true; cv._hover = -1; if(!drag){ S.hovering = false; ensureSpin(); } });
+  cv.addEventListener('click', ()=>{ if(cv._dragged){ cv._dragged = false; return; } const i = cv._hover; if(i==null||i<0) return; const c = S.block.cloud; const k = S.block.tables.findIndex(t=>t.tid===c.t[i]); if(k>=0){ S.table = k; S.hlRow = c.r[i]; renderTabs(); F(main,'tabs').scrollIntoView({block:'nearest',behavior:'smooth'}); } });
+}
+function paintCloud(){
+  const cv = F(main,'cloud'); if(!cv || !S.block) return; const c = S.block.cloud, sc = S.block.cloud_scale * 1.08, n = c.x.length;
+  const W = Math.max(240, cv.parentElement.clientWidth), dpr = window.devicePixelRatio||1;
+  if(cv.width !== Math.round(W*dpr)){ cv.width = Math.round(W*dpr); cv.height = Math.round(W*dpr); }
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,W);
+  ctx.font = '11px "IBM Plex Mono", monospace'; ctx.lineWidth = 1;
+  const col = colorFn(), base = W < 360 ? 1.8 : 2.4;
+  const SX = new Float32Array(n), SY = new Float32Array(n); let order;
+  if(S.view==='3d'){
+    // rotate about the vertical axis (yaw), then tilt (pitch); weak perspective with depth fading
+    if(!S.block._r98){ const rr = c.x.map((x,i)=>Math.hypot(x, c.y[i], c.z[i])).sort((a,b)=>a-b); S.block._r98 = rr[Math.floor(rr.length*0.98)] || sc; }
+    const rs = S.block._r98;  // robust radius: a few outliers should not shrink the cloud
+    const cy = Math.cos(S.yaw), sy = Math.sin(S.yaw), cp = Math.cos(S.pitch), sp = Math.sin(S.pitch), D = 6, k = W*0.36;
+    const P = (x,y,z)=>{ x/=rs; y/=rs; z/=rs; const x1 = cy*x + sy*z, z1 = -sy*x + cy*z, y2 = cp*y - sp*z1, z2 = sp*y + cp*z1, f = D/(D - z2); return [W/2 + x1*f*k, W/2 - y2*f*k, z2, f]; };
+    for(const [ax,ay,az,lab] of [[1,0,0,'PC1'],[0,1,0,'PC2'],[0,0,1,'PC3']]){
+      const a = P(-ax*rs,-ay*rs,-az*rs), b = P(ax*rs*1.1,ay*rs*1.1,az*rs*1.1);
+      ctx.strokeStyle = css('--rule'); ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
+      ctx.fillStyle = css('--ink-3'); ctx.textAlign = 'center'; ctx.fillText(lab, b[0] + (b[0]-W/2)*0.07, b[1] + (b[1]-W/2)*0.07 + 4);
+    }
+    const SZ = new Float32Array(n), SF = new Float32Array(n);
+    for(let i=0;i<n;i++){ const p = P(c.x[i], c.y[i], c.z[i]); SX[i] = Math.max(3, Math.min(W-3, p[0])); SY[i] = Math.max(3, Math.min(W-3, p[1])); SZ[i] = p[2]; SF[i] = p[3]; }
+    order = [...Array(n).keys()].sort((i,j)=>SZ[i]-SZ[j]);  // far to near
+    for(const i of order){ ctx.globalAlpha = Math.max(0.3, Math.min(1, 0.65 + 0.35*SZ[i])); ctx.fillStyle = col(i); ctx.beginPath(); ctx.arc(SX[i], SY[i], base*SF[i], 0, 6.2832); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  } else {
+    const A = [c.x,c.y,c.z][S.view[0]], B = [c.x,c.y,c.z][S.view[1]], pad = 8;
+    const sx = v=> pad + (v+sc)/(2*sc)*(W-2*pad), sy = v=> W - pad - (v+sc)/(2*sc)*(W-2*pad);
+    ctx.strokeStyle = css('--grid'); ctx.beginPath(); ctx.moveTo(sx(0),pad); ctx.lineTo(sx(0),W-pad); ctx.moveTo(pad,sy(0)); ctx.lineTo(W-pad,sy(0)); ctx.stroke();
+    ctx.fillStyle = css('--ink-3'); ctx.textAlign='right'; ctx.fillText('PC'+(S.view[0]+1)+' →', W-pad, sy(0)-5); ctx.textAlign='left'; ctx.fillText('PC'+(S.view[1]+1)+' ↑', sx(0)+5, pad+10);
+    for(let i=0;i<n;i++){ SX[i] = sx(A[i]); SY[i] = sy(B[i]); }
+    order = [...Array(n).keys()];
+    if(S.color==='pm') order.sort((i,j)=>(c.tr[j]-c.tr[i]) || (c.pm[i]-c.pm[j])); else if(S.color==='n') order.reverse();
+    for(const i of order){ ctx.fillStyle = col(i); ctx.beginPath(); ctx.arc(SX[i], SY[i], base, 0, 6.2832); ctx.fill(); }
+  }
+  cv._map = {SX, SY, order};
+}
+function drawCloud(){ paintCloud(); if(S.block && F(main,'cloudLeg')) cloudLegend(); }
+let spinRaf = 0;
+function ensureSpin(){
+  if(spinRaf) return;
+  const step = ()=>{ spinRaf = 0; if(!S.spin || S.view!=='3d' || S.hovering || document.hidden || !F(main,'cloud')) return; S.yaw += 0.004; paintCloud(); spinRaf = requestAnimationFrame(step); };
+  spinRaf = requestAnimationFrame(step);
+}
+document.addEventListener('visibilitychange', ensureSpin);
+function drawHist(){
+  const host = F(main,'hist'); host.textContent=''; const h = S.block.hist, n = h.tr.length, W = 300, Ht = 90;
+  const NS='http://www.w3.org/2000/svg', svg = document.createElementNS(NS,'svg'); svg.setAttribute('viewBox',`0 0 ${W} ${Ht+16}`); svg.setAttribute('class','hs'); svg.setAttribute('role','img'); svg.setAttribute('aria-label','Activation histogram, train vs test rows'); host.appendChild(svg);
+  const mx = Math.max(1, ...h.tr, ...h.te), bw = W/n;
+  const path = (arr, col)=>{ let d = `M0,${Ht}`; arr.forEach((v,i)=>{ const y = Ht - v/mx*(Ht-4); d += `L${i*bw},${y}L${(i+1)*bw},${y}`; }); d += `L${W},${Ht}`; const p = document.createElementNS(NS,'path'); p.setAttribute('d',d); p.setAttribute('style',`fill:${col};fill-opacity:.18;stroke:${col};stroke-width:1.6`); svg.appendChild(p); };
+  path(h.tr,'var(--s1)'); path(h.te,'var(--s2)');
+  const base = document.createElementNS(NS,'line'); base.setAttribute('x1',0); base.setAttribute('x2',W); base.setAttribute('y1',Ht); base.setAttribute('y2',Ht); base.setAttribute('style','stroke:var(--ink-3);stroke-width:1'); svg.appendChild(base);
+  [[0,'0','start'],[W,h.hi.toFixed(1),'end']].forEach(([x,t,a])=>{ const tx = document.createElementNS(NS,'text'); tx.setAttribute('x',x); tx.setAttribute('y',Ht+13); tx.setAttribute('text-anchor',a); tx.textContent = t; svg.appendChild(tx); });
+}
+
+/* ---------- tables ---------- */
+function renderTabs(){
+  const tabs = F(main,'tabs'); tabs.textContent='';
+  S.block.tables.forEach((t,k)=>{ const bt = H('button',{type:'button',role:'tab','aria-selected':String(k===S.table)},tabs); bt.appendChild(document.createTextNode(`Table ${t.tid}`));
+    H('small',null,bt,`${t.C?t.C+' classes · ':''}${t.d} features · fires on ${pct(t.fire_tr)} train / ${pct(t.fire_te)} test rows`);
+    bt.addEventListener('click',()=>{ S.table = k; S.hlRow = null; renderTabs(); }); });
+  renderTable();
+}
+function renderTable(){
+  const t = S.block.tables[S.table], host = F(main,'hm'); host.textContent=''; if(!t) return;
+  const sc = S.block.cloud_scale, R = t.rows, amax = Math.max(1e-6, ...R.a);
+  const tb = H('table',{class:'hm'},host), hr = H('tr',null,H('thead',null,tb));
+  (isReg() ? ['row','split','target z','pred · IQR','activation'] : ['row','split','label','pred · conf','activation']).forEach(x=>H('th',{style:'text-align:left'},hr,x));
+  t.cols.forEach(cix=>H('th',{title:'feature '+cix},hr,'f'+cix));
+  const body = H('tbody',null,tb); let sepDone = false; const nTop = t.contrast==='low' ? Math.min(24, R.r.length) : R.a.filter(v=>v>0).length;
+  R.r.forEach((rid,i)=>{
+    if(!sepDone && i===nTop){ sepDone = true; const s = H('tr',{class:'sep'},body); H('td',{colspan:5+t.cols.length},s, t.contrast==='low' ? 'lowest-activation rows (the block fires on almost every row of this table)' : 'rows where the block does not fire (sample)'); }
+    const tr = H('tr',{class: S.hlRow===rid?'hl':''},body);
+    H('td',{class:'g'},tr,String(rid));
+    const sp = H('td',{class:'g sp'},tr,R.tr[i]?'train':'test'); sp.style.color = R.tr[i] ? 'var(--s1)' : 'var(--s2)';
+    H('td',{class:'g'},tr, isReg() ? R.y[i].toFixed(2) : String(R.y[i]));
+    H('td',{class:'g'},tr, R.tr[i] ? '–' : `${isReg() ? R.p[i].toFixed(2) : R.p[i]} · ${R.pm[i].toFixed(2)}`);
+    const ac = H('td',{class:'act'},tr); if(R.a[i]>0){ const bb = H('b',null,ac); bb.style.width = (4 + 52*R.a[i]/amax)+'px'; bb.style.background = pcaRGB(R.cx[i],R.cy[i],R.cz[i],sc); bb.title = 'activation '+R.a[i].toFixed(2); }
+    R.z[i].forEach((z,j)=>{ const td = H('td',{class:'f',title:`f${t.cols[j]}: z = ${z.toFixed(1)}`},tr); td.style.background = div(z); });
+  });
+  const note = F(main,'tpcaNote');
+  note.textContent = `Table ${t.tid}: ${t.T} rows (${t.n_train} train), ${t.d} features${t.d>t.cols.length?` (showing the ${t.cols.length} that differ most between high- and low-activation rows)`:''}${t.n_unique<t.T?`; ${t.n_unique} distinct rows`:''}. ${t.acc!=null?`Model test accuracy ${pct(t.acc)}, linear baseline ${pct(t.lin)}.`:`Linear-baseline R² ${t.lin.toFixed(2)}.`}`;
+  drawTablePCA();
+}
+function drawTablePCA(){
+  const t = S.block.tables[S.table], cv = F(main,'tpca'); if(!t||!cv) return; const P = t.pca;
+  const W = Math.max(200, cv.parentElement.clientWidth), dpr = window.devicePixelRatio||1; cv.width = W*dpr; cv.height = W*dpr;
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,W);
+  const [lo, hi] = P.lim, pad = 10; const span = Math.max(hi[0]-lo[0], hi[1]-lo[1], 1e-6)*1.1, cx = (lo[0]+hi[0])/2, cy = (lo[1]+hi[1])/2;
+  const sx = v=> W/2 + (v-cx)/span*(W-2*pad), sy = v=> W/2 - (v-cy)/span*(W-2*pad);
+  ctx.strokeStyle = css('--grid'); ctx.strokeRect(0.5,0.5,W-1,W-1);
+  const amax = Math.max(1e-6, ...P.a); const idx = [...P.x.keys()].sort((i,j)=>P.a[i]-P.a[j]);
+  for(const i of idx){
+    const fire = P.a[i] > 0, col = isReg() ? div(P.c[i]) : (P.c[i]>=0 && P.c[i]<8 ? cssv(CLS[P.c[i]]) : css('--ref'));
+    const x = Math.max(2, Math.min(W-2, sx(P.x[i]))), y = Math.max(2, Math.min(W-2, sy(P.y[i])));
+    ctx.globalAlpha = fire ? 1 : 0.28; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, fire ? 2.5 + 3.5*P.a[i]/amax : 2.2, 0, 6.2832); ctx.fill();
+    if(fire){ ctx.globalAlpha = 1; ctx.lineWidth = 1; ctx.strokeStyle = css('--ink'); ctx.stroke(); }
+    if(S.hlRow!=null && P.r[i]===S.hlRow){ ctx.globalAlpha = 1; ctx.lineWidth = 2; ctx.strokeStyle = css('--accent'); ctx.beginPath(); ctx.arc(x,y,9,0,6.2832); ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1;
+  const L = F(main,'tpcaLeg'); L.textContent=''; H('span',{class:'legend-head'},L,`table’s own PCA (${pct(P.var[0])}, ${pct(P.var[1])} of variance) · colour = ${isReg()?'target z':'class index'}`);
+  const s = H('span',null,L); const i = H('i',null,s); i.style.cssText = 'background:var(--ref);outline:1px solid var(--ink)'; s.appendChild(document.createTextNode('outlined, larger = block fires'));
+}
+
+/* ---------- boot ---------- */
+function parseHash(){ const m = location.hash.match(/^#([a-z0-9]+)-(\d+)$/); return m ? {fz:m[1], g:+m[2]} : null; }
+async function boot(){
+  const h = parseHash(); await loadFeaturizer(h ? h.fz : FEATURIZERS[0].id);
+  const g = h && S.manifest.blocks.some(b=>b.g===h.g) ? h.g : S.manifest.blocks.slice().sort((a,b)=>b.freq-a.freq)[0].g;
+  await select(g, !h);
+}
+window.addEventListener('hashchange', async ()=>{ const h = parseHash(); if(!h) return; if(!S.fz || h.fz!==S.fz.id) await loadFeaturizer(h.fz); if(!S.block || S.block.g!==h.g) select(h.g, true); });
+let lastW = document.body.clientWidth, raf = 0;
+new ResizeObserver(()=>{ const w = document.body.clientWidth; if(w===lastW || !S.block) return; lastW = w; cancelAnimationFrame(raf); raf = requestAnimationFrame(()=>{ drawCloud(); drawTablePCA(); }); }).observe(document.body);
+const retheme = ()=>{ colorCache = {}; if(!S.manifest) return; renderList(); if(S.block){ drawCloud(); drawTablePCA(); renderTable(); } };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
+new MutationObserver(retheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+boot().catch(err=>{ main.textContent=''; H('div',{class:'empty'},main,'Could not load the featurizer data: '+err.message); });
+</script>
+
+</body>
+</html>
