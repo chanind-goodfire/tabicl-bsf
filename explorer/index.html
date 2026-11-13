@@ -134,14 +134,17 @@ table.hm tr.hl td.g{background:var(--sel)}
 .tip .h{color:var(--ink-3);font-size:11.5px;margin-bottom:2px}
 .tip .r{display:flex;gap:8px;white-space:nowrap} .tip .r b{font-family:var(--f-mono);font-weight:500;min-width:40px}
 .empty{color:var(--ink-3);padding:40px 0;text-align:center}
+.q{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--ink-3);color:var(--ink-3);font:600 10.5px/1 var(--f-ui);background:transparent;cursor:help;padding:0;margin-left:6px;vertical-align:middle;flex:0 0 auto}
+.q:hover,.q:focus-visible{border-color:var(--accent);color:var(--accent)}
+.helptip{position:fixed;z-index:60;max-width:min(340px,calc(100vw - 24px));background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.18);padding:10px 12px;font:400 12.5px/1.5 var(--f-ui);pointer-events:none}
 .legend-head{font-size:12px;color:var(--ink-3);margin-right:4px}
 </style>
 
 <div class="bar">
   <h1>TabICL Block Explorer</h1>
-  <span><label for="bsfSel">Featurizer</label><select id="bsfSel"></select></span>
-  <span><label for="goto">Block</label><input type="text" id="goto" inputmode="numeric" placeholder="e.g. 1506"></span>
-  <span class="help">Each point is a table row; its context is the table it came from.</span>
+  <span><label for="bsfSel">Featurizer</label><select id="bsfSel"></select><button type="button" class="q" aria-label="What is this?" data-help="Which trained dictionary you are browsing. &#x27;ICL block N&#x27; is the layer of TabICL&#x27;s in-context-learning transformer it was trained on; block 11 is the transformer&#x27;s output, which the prediction head reads. &#x27;Test rows&#x27; means it was trained only on rows the model predicts. Atoms = number of dictionary directions (blocks × 4); 4,096 is the size our sweep recommends, and &#x27;first pass&#x27; marks our earlier, larger dictionaries. gs4 × L0 8 = blocks of 4 directions, 8 active blocks per row.">?</button></span>
+  <span><label for="goto">Block</label><input type="text" id="goto" inputmode="numeric" placeholder="e.g. 1506"><button type="button" class="q" aria-label="What is this?" data-help="Type a block number and press Enter to open it. Only blocks that fire on at least 0.02% of rows are listed.">?</button></span>
+  <span class="help">How to read this page<button type="button" class="q" aria-label="How to read this page" data-help="TabICL predicts the labels of a table&#x27;s test rows from its labelled train rows, in one forward pass. We trained block-sparse featurizers (BSFs) on its internal activations, where each &#x27;token&#x27; is one table row. A BSF splits the 512-number activation into blocks of 4 directions that switch on together: each row activates 8 blocks, and each active block gives a 4-number code. Pick a block on the left to see which rows it fires on, what its code tracks, and the tables where it is strongest.">?</button></span>
 </div>
 
 <div class="app">
@@ -150,12 +153,12 @@ table.hm tr.hl td.g{background:var(--sel)}
       <span><label for="sortSel">Sort</label> <select id="sortSel">
         <option value="freq">Firing rate</option><option value="eta2">Table concentration</option>
         <option value="dir_tab">Direction set by table</option><option value="lift">Class-index lift</option>
-        <option value="top_r">Strongest correlation</option><option value="g">Block number</option></select></span>
+        <option value="top_r">Strongest correlation</option><option value="g">Block number</option></select><button type="button" class="q" aria-label="What is this?" data-help="Firing rate: share of rows where the block is active. Table concentration (η²): how much of its activation is explained by which table a row comes from (1 = it fires per table, not per row). Direction set by table: how much of the variation in its code&#x27;s direction is explained by table identity; high values mean its cloud mostly separates tables. Class-index lift: how strongly it prefers one class index. Strongest correlation: largest |r| with any row or table property.">?</button></span>
       <span><label for="roleSel">Show</label> <select id="roleSel">
         <option value="all">All roles</option><option value="class">Class index</option><option value="dataset">Dataset-level</option>
-        <option value="var">Tracks a variable</option><option value="weak">No clear role</option></select></span>
+        <option value="var">Tracks a variable</option><option value="weak">No clear role</option></select><button type="button" class="q" aria-label="What is this?" data-help="Each block gets one dominant role. Class index: at least half its activation is on one class index k (train rows labelled k, test rows predicted k), at 3× or more that class&#x27;s base rate. Dataset-level: table identity explains at least 60% of its activation. Tracks a variable: its activation correlates (|r| ≥ 0.2) with one row or table property, named in the chip. No clear role: none of these.">?</button></span>
     </div>
-    <div class="ctl" id="count"></div>
+    <div class="ctl"><span id="count"></span><button type="button" class="q" aria-label="What is this?" data-help="Each entry shows: a thumbnail of the block&#x27;s code cloud (density on its first two principal axes), its role, its firing rate, and on the second line its strongest correlation (sign, r, then the property).">?</button></div>
     <div class="list" id="list" role="listbox" aria-label="Blocks"></div>
   </aside>
 
@@ -166,53 +169,54 @@ table.hm tr.hl td.g{background:var(--sel)}
 
 <template id="tplBlock">
   <section class="card head">
-    <div class="t"><h2>Block <span class="mono" data-f="gid"></span></h2><span data-f="role"></span><span class="chip" data-f="fsite"></span></div>
+    <div class="t"><h2>Block <span class="mono" data-f="gid"></span></h2><span data-f="role"></span><button type="button" class="q" aria-label="What do roles mean?" data-help="Each block gets one dominant role. Class index: at least half its activation is on one class index k (train rows labelled k, test rows predicted k), at 3× or more that class&#x27;s base rate. Dataset-level: table identity explains at least 60% of its activation. Tracks a variable: its activation correlates (|r| ≥ 0.2) with one row or table property, named in the chip. No clear role: none of these.">?</button><span class="chip" data-f="fsite"></span></div>
     <p class="diag" data-f="diag"></p>
     <div class="tiles" data-f="tiles"></div>
   </section>
   <div class="grid2">
     <section class="card">
-      <h3>Code cloud</h3>
+      <h3>Code cloud<button type="button" class="q" aria-label="What is this?" data-help="Each dot is one table row where this block fired (600 sampled at random). Its position is the block&#x27;s 4-number code, projected onto the code&#x27;s top three principal axes, so rows with similar codes sit close together. Use &#x27;Colour by&#x27; to see which property the shape follows. Hover a dot for its details; click it to open its table below when that table is one of the top three.">?</button></h3>
       <p class="sub" data-f="cloudsub"></p>
       <div class="ctrls">
         <span class="seg" role="group" aria-label="View" data-f="axes"></span>
-        <button type="button" class="tog" data-f="spin" aria-pressed="true">Auto-rotate</button>
-        <span><label for="colorSel">Colour by</label> <select id="colorSel" data-f="colorSel"></select></span>
+        <button type="button" class="tog" data-f="spin" aria-pressed="true">Auto-rotate</button><button type="button" class="q" aria-label="What is this?" data-help="3D shows the code&#x27;s first three principal axes; drag to rotate, double-click to reset. The PC pairs are flat 2-D projections. The percentages above say how much of the code&#x27;s variance each axis carries. Auto-rotate spins the 3D view and pauses while your pointer is over it.">?</button>
+        <span><label for="colorSel">Colour by</label> <select id="colorSel" data-f="colorSel"></select><button type="button" class="q" aria-label="What is this?" data-help="Class index: the row&#x27;s label for train rows, the model&#x27;s predicted class for test rows (indices 0–9 are per table). Train vs test: rows given with labels vs rows the model predicts. Model confidence: probability of the predicted class (test rows). Number of classes: in the row&#x27;s table. Table: the 7 tables with most dots get colours, the rest grey; tight one-colour clusters mean the shape is table-specific. kNN label purity: share of the row&#x27;s nearest train rows with the same label. Row outlierness: how extreme its most unusual feature value is. Activation: code norm. Code position: the dot&#x27;s coordinates mapped to red/green/blue, matching the activation bars in the tables. Regressor: target z = the row&#x27;s target relative to its table; predicted IQR = the model&#x27;s uncertainty.">?</button></span>
       </div>
       <div class="cv"><canvas class="sc" data-f="cloud" tabindex="0" aria-label="Block code cloud"></canvas></div>
       <div class="legend" data-f="cloudLeg"></div>
     </section>
     <div class="stack">
-      <section class="card"><h3>Strongest metadata correlations</h3><p class="sub">Pearson r of block activation (code norm) with each variable</p><div class="corr" data-f="corr"></div></section>
-      <section class="card"><h3>Activation</h3><p class="sub">code norm when the block fires</p><div data-f="hist"></div><div class="legend"><span><i class="bx" style="background:var(--s1)"></i>train rows</span><span><i class="bx" style="background:var(--s2)"></i>test rows</span></div></section>
-      <section class="card"><h3>Class index</h3><dl class="kv" data-f="cls"></dl></section>
+      <section class="card"><h3>Strongest metadata correlations<button type="button" class="q" aria-label="What is this?" data-help="Pearson correlation between how strongly the block fires (the norm of its code; 0 when it does not fire) and each property, over all eval rows. Red bars are positive, blue negative. &#x27;table:&#x27; properties are shared by every row of a table. Model outputs (confidence, entropy, ...) exist only for test rows and are correlated over test rows.">?</button></h3><p class="sub">Pearson r of block activation (code norm) with each variable</p><div class="corr" data-f="corr"></div></section>
+      <section class="card"><h3>Activation<button type="button" class="q" aria-label="What is this?" data-help="Distribution of the block&#x27;s activation strength (code norm) on the rows where it fires, for train rows (blue) and test rows (orange).">?</button></h3><p class="sub">code norm when the block fires</p><div data-f="hist"></div><div class="legend"><span><i class="bx" style="background:var(--s1)"></i>train rows</span><span><i class="bx" style="background:var(--s2)"></i>test rows</span></div></section>
+      <section class="card"><h3>Class index<button type="button" class="q" aria-label="What is this?" data-help="Class indices are arbitrary labels 0–9 inside each table, but the model&#x27;s label embedding is shared across tables, so a block can come to mean &#x27;class 3&#x27; in unrelated tables. Share: fraction of the block&#x27;s activation on that class. Lift: share divided by that class&#x27;s overall frequency (1 = no preference; 3 or more counts as a class-index block). &#x27;Same class?&#x27; says whether train rows (by label) and test rows (by prediction) prefer the same index.">?</button></h3><dl class="kv" data-f="cls"></dl></section>
       <section class="card"><h3>Neighbours</h3>
-        <p class="sub">fire together (lift over chance)</p><div class="nb" data-f="cofire"></div>
-        <p class="sub" style="margin-top:10px">closest decoder subspaces (overlap 0–1)</p><div class="nb" data-f="decoder"></div></section>
+        <p class="sub">fire together (lift over chance)<button type="button" class="q" aria-label="What is this?" data-help="Blocks that fire on the same rows as this one more often than chance. Lift = how many times more often than if they were independent. Click one to open it.">?</button></p><div class="nb" data-f="cofire"></div>
+        <p class="sub" style="margin-top:10px">closest decoder subspaces (overlap 0–1)<button type="button" class="q" aria-label="What is this?" data-help="Blocks whose 4 decoder directions span a similar subspace of the activation space. Overlap is 1 for the same subspace and 0 for orthogonal ones. Click one to open it.">?</button></p><div class="nb" data-f="decoder"></div></section>
     </div>
   </div>
   <section class="card">
-    <h3>Top tables</h3>
+    <h3>Top tables<button type="button" class="q" aria-label="What is this?" data-help="The three tables where this block&#x27;s total activation is largest (tables with only a few distinct rows are skipped). Each grid row is one table row: its id, train or test, its label, the model&#x27;s prediction and confidence (test rows), and the block&#x27;s activation (bar length = strength; bar colour = where the row&#x27;s code sits in the cloud). The coloured cells are the row&#x27;s feature values, z-scored with the table&#x27;s train rows (blue low, red high). At most 16 features are shown: those that differ most between high- and low-activation rows. Features are unnamed (f0, f1, ...) because the tables are synthetic.">?</button></h3>
     <p class="sub">The tables where this block’s total activation is largest. Rows where it fires come first, then a sample of rows where it does not. Feature values are z-scored on the table’s train rows.</p>
     <div class="tabs" role="tablist" data-f="tabs"></div>
     <div class="tview">
       <div class="hm-wrap" data-f="hm"></div>
-      <div><div class="cv"><canvas class="sc" data-f="tpca" aria-label="Table rows in the table's own feature space"></canvas></div>
+      <div><p class="sub" style="margin:0 0 6px">This table’s rows in its own feature space<button type="button" class="q" aria-label="What is this?" data-help="Every row of this table placed by the first two principal components of its own feature values, so nearby points have similar inputs. Colour = class index (label or prediction; regressor: target). Outlined, larger points are rows where the block fires; size grows with activation. Shows whether the block picks out a region of the table&#x27;s input space.">?</button></p><div class="cv"><canvas class="sc" data-f="tpca" aria-label="Table rows in the table's own feature space"></canvas></div>
         <div class="legend" data-f="tpcaLeg"></div><p class="note" data-f="tpcaNote"></p></div>
     </div>
-    <div class="legend" style="margin-top:12px"><span class="legend-head">feature z</span><span class="mono">−3</span><i class="grad" style="background:linear-gradient(90deg,var(--div-neg),var(--div-mid),var(--div-pos))"></i><span class="mono">+3</span>
+    <div class="legend" style="margin-top:12px"><span class="legend-head">feature z<button type="button" class="q" aria-label="What is this?" data-help="Feature cells: each value minus the mean of the table&#x27;s train rows, divided by their standard deviation, clipped to ±3.">?</button></span><span class="mono">−3</span><i class="grad" style="background:linear-gradient(90deg,var(--div-neg),var(--div-mid),var(--div-pos))"></i><span class="mono">+3</span>
       <span class="legend-head" style="margin-left:12px">activation bar colour = position in the code cloud (PCA-RGB)</span></div>
   </section>
 </template>
 
 <script>
 const FEATURIZERS = [
-  {id:'icl8w', dir:'data/clf-icl8-bsf-a4096-gs4-l8', label:'Classifier · ICL block 8 · 4,096 atoms, gs4 × L0 8 (recommended)'},
+  {id:'icl8w', dir:'data/clf-icl8-bsf-a4096-gs4-l8', label:'Classifier · ICL block 8 · 4,096 atoms, gs4 × L0 8 (recommended size)'},
   {id:'icl8', dir:'data/clf-icl8-bsf-gs4-l8', label:'Classifier · ICL block 8 · 8,192 atoms, gs4 × L0 8 (first pass)'},
   {id:'icl11', dir:'data/clf-icl11-bsf-gs4-l8', label:'Classifier · ICL block 11 · 8,192 atoms, gs4 × L0 8 (first pass)'},
-  {id:'reg5w', dir:'data/reg-icl5-bsf-a4096-gs4-l8', label:'Regressor · ICL block 5 · 4,096 atoms, gs4 × L0 8 (recommended)'},
+  {id:'reg5w', dir:'data/reg-icl5-bsf-a4096-gs4-l8', label:'Regressor · ICL block 5 · 4,096 atoms, gs4 × L0 8 (recommended size)'},
   {id:'reg5', dir:'data/reg-icl5-bsf-gs4-l8', label:'Regressor · ICL block 5 · 8,192 atoms, gs4 × L0 8 (first pass)'},
 ];
+const TILE_HELP = {"Fires on": "Share of rows on which this block is one of the 8 active blocks.", "Tables": "Number of eval tables (out of 1,500) with at least one row where the block fires.", "Train share": "Share of the block's total activation that falls on train rows, next to the share of all rows that are train rows (base). Much higher than base: a context (train-row) block; much lower: a test-row block.", "Table η²": "Share of the variance of the block's activation explained by which table a row comes from. Near 1: the block fires per table (a dataset-level feature), not per row. Highlighted at 0.6 or more.", "Direction ↔ table": "Share of the variance in the DIRECTION of the block's 4-d code explained by table identity. High (highlighted at 0.5 or more) means the cloud's shape mostly separates tables, so apparent clusters may be tables rather than a concept shared across tables.", "Direction ↔ class": "Within each table, the share of the remaining direction variance explained by class index (label for train rows, prediction for test rows). High means that inside a table the block points different ways for different classes. In-sample, so inflated for rare blocks.", "Mean norm": "Average activation strength (code norm) when the block fires, in the dictionary's input units."};
 const isReg = ()=> !!(S.manifest && S.manifest.meta.kind==='reg');
 const CLF_COLORS = [['cls','Class index (label / prediction)'],['tr','Train vs test row'],['pm','Model confidence (test rows)'],['C','Number of classes in table'],['tab','Table (top 7)'],['kp','kNN label purity'],['oz','Row outlierness'],['n','Activation (code norm)'],['rgb','Code position (PCA-RGB)']];
 const REG_COLORS = [['yz','Target value (z within table)'],['tr','Train vs test row'],['pd','Model prediction (z, test rows)'],['iq','Predicted IQR (test rows)'],['tab','Table (top 7)'],['kp','kNN spread (z)'],['oz','Row outlierness'],['n','Activation (code norm)'],['rgb','Code position (PCA-RGB)']];
@@ -311,17 +315,19 @@ function renderBlock(){
   F(main,'fsite').textContent = S.fz.label;
   // diagnosis
   const d = [];
-  d.push(`Fires on ${pct(st.freq)} of rows across ${st.n_tables.toLocaleString()} of ${S.manifest.meta.n_tables.toLocaleString()} eval tables.`);
-  if(st.label_tr && st.label_tr.lift >= 3) d.push(`Concentrated on class index ${st.label_tr.k} (train rows by label, ${pct(st.label_tr.share)} of mass, lift ${st.label_tr.lift}×).`);
+  d.push(`Fires on ${pct(st.freq)} of ${S.manifest.meta.rows==='test'?'test ':''}rows across ${st.n_tables.toLocaleString()} of ${S.manifest.meta.n_tables.toLocaleString()} eval tables.`);
+  if(S.manifest.meta.rows === 'test'){ if(st.pred_te && st.pred_te.lift >= 3) d.push(`Concentrated on test rows predicted as class ${st.pred_te.k} (${pct(st.pred_te.share)} of mass, lift ${st.pred_te.lift}×).`); }
+  else if(st.label_tr && st.label_tr.lift >= 3) d.push(`Concentrated on class index ${st.label_tr.k} (train rows by label, ${pct(st.label_tr.share)} of mass, lift ${st.label_tr.lift}×).`);
   if(st.dir_tab != null && st.dir_tab >= 0.5) d.push(`Its code direction is mostly table identity (${pct(st.dir_tab)} of direction variance): geometry in the cloud may reflect which table a row came from rather than a shared feature.`);
   else if(st.dir_tab != null) d.push(`Table identity explains ${pct(st.dir_tab)} of its code-direction variance${st.dir_cls!=null?`; class index explains ${pct(st.dir_cls)} of what remains within tables`:''}.`);
   if(st.eta2 >= 0.6) d.push('Activation is set mostly per table (dataset-level).');
   F(main,'diag').textContent = d.join(' ');
   const tiles = F(main,'tiles');
-  const tile = (k, v, sm, warn, title)=>{ const t = H('div',{class:'tile'+(warn?' warn':''),title:title||''},tiles); H('div',{class:'k'},t,k); const vv = H('div',{class:'v'},t,v); if(sm) H('small',null,vv,sm); };
-  tile('Fires on', pct(st.freq), 'of rows');
+  const tile = (k, v, sm, warn)=>{ const t = H('div',{class:'tile'+(warn?' warn':'')},tiles); const kd = H('div',{class:'k'},t,k); if(TILE_HELP[k]) H('button',{type:'button',class:'q','aria-label':'What is '+k+'?','data-help':TILE_HELP[k]},kd,'?'); const vv = H('div',{class:'v'},t,v); if(sm) H('small',null,vv,sm); };
+  tile('Fires on', pct(st.freq), S.manifest.meta.rows === 'test' ? 'of test rows' : 'of rows');
   tile('Tables', st.n_tables.toLocaleString(), `of ${S.manifest.meta.n_tables.toLocaleString()}`);
-  tile('Train share', pct(st.train_share), `base ${pct(st.train_base)}`, false, 'Share of total activation on train rows, vs the share of rows that are train rows');
+  const testOnly = S.manifest.meta.rows === 'test';
+  if(!testOnly) tile('Train share', pct(st.train_share), `base ${pct(st.train_base)}`, false, 'Share of total activation on train rows, vs the share of rows that are train rows');
   tile('Table η²', f2(st.eta2), null, st.eta2>=0.6, 'Share of activation variance explained by table identity');
   tile('Direction ↔ table', st.dir_tab==null?'–':f2(st.dir_tab), null, st.dir_tab>=0.5, 'Share of code-direction variance explained by table identity');
   if(!isReg()) tile('Direction ↔ class', st.dir_cls==null?'–':f2(st.dir_cls), 'within table', false, 'Share of within-table code-direction variance explained by class index (label for train rows, prediction for test rows); in-sample, so inflated for rare blocks');
@@ -332,9 +338,9 @@ function renderBlock(){
   // class index
   const kv = F(main,'cls'); kv.closest('section').hidden = isReg();
   if(st.label_tr){ const add = (k,v)=>{ H('dt',null,kv,k); H('dd',null,kv,v); };
-    add('Train rows', `class ${st.label_tr.k}: ${pct(st.label_tr.share)} of activation, lift ${st.label_tr.lift}×`);
+    if(S.manifest.meta.rows !== 'test') add('Train rows', `class ${st.label_tr.k}: ${pct(st.label_tr.share)} of activation, lift ${st.label_tr.lift}×`);
     add('Test rows', `predicted class ${st.pred_te.k}: ${pct(st.pred_te.share)} of activation, lift ${st.pred_te.lift}×`);
-    add('Same class?', st.label_tr.k===st.pred_te.k ? 'yes: one class code for both' : 'no');
+    if(S.manifest.meta.rows !== 'test') add('Same class?', st.label_tr.k===st.pred_te.k ? 'yes: one class code for both' : 'no');
   } else { H('dd',null,kv,'Not a classifier.'); }
   // neighbours
   const nb = (host, arr, fmt)=>{ for(const a of arr){ const known = S.manifest.blocks.some(x=>x.g===a[0]); const btn = H('button',{type:'button',title: known?'Open block':'Rare block (not in index)'},host); H('span',{class:'mono'},btn,'#'+a[0]); H('small',null,btn,fmt(a)); if(known) btn.addEventListener('click',()=>select(a[0])); else btn.disabled = true; } };
@@ -473,7 +479,7 @@ function drawHist(){
 function renderTabs(){
   const tabs = F(main,'tabs'); tabs.textContent='';
   S.block.tables.forEach((t,k)=>{ const bt = H('button',{type:'button',role:'tab','aria-selected':String(k===S.table)},tabs); bt.appendChild(document.createTextNode(`Table ${t.tid}`));
-    H('small',null,bt,`${t.C?t.C+' classes · ':''}${t.d} features · fires on ${pct(t.fire_tr)} train / ${pct(t.fire_te)} test rows`);
+    H('small',null,bt,`${t.C?t.C+' classes · ':''}${t.d} features · fires on ${S.manifest.meta.rows==='test' ? pct(t.fire_te)+' of test rows' : pct(t.fire_tr)+' train / '+pct(t.fire_te)+' test rows'}`);
     bt.addEventListener('click',()=>{ S.table = k; S.hlRow = null; renderTabs(); }); });
   renderTable();
 }
@@ -517,6 +523,21 @@ function drawTablePCA(){
   const L = F(main,'tpcaLeg'); L.textContent=''; H('span',{class:'legend-head'},L,`table’s own PCA (${pct(P.var[0])}, ${pct(P.var[1])} of variance) · colour = ${isReg()?'target z':'class index'}`);
   const s = H('span',null,L); const i = H('i',null,s); i.style.cssText = 'background:var(--ref);outline:1px solid var(--ink)'; s.appendChild(document.createTextNode('outlined, larger = block fires'));
 }
+
+/* ---------- help tooltips ---------- */
+const helpTip = H('div',{class:'helptip',role:'tooltip',id:'helptip'},document.body); helpTip.hidden = true; let helpFor = null;
+function showHelp(b){ helpTip.textContent = b.dataset.help; helpTip.hidden = false; helpFor = b; b.setAttribute('aria-describedby','helptip');
+  const r = b.getBoundingClientRect(), tw = helpTip.offsetWidth, th = helpTip.offsetHeight;
+  const x = Math.min(Math.max(12, r.left + r.width/2 - tw/2), window.innerWidth - tw - 12); let y = r.bottom + 8; if(y + th > window.innerHeight - 12) y = r.top - th - 8;
+  helpTip.style.left = x + 'px'; helpTip.style.top = Math.max(12, y) + 'px'; }
+function hideHelp(){ helpTip.hidden = true; if(helpFor) helpFor.removeAttribute('aria-describedby'); helpFor = null; }
+document.addEventListener('mouseover', e=>{ const b = e.target.closest && e.target.closest('.q'); if(b) showHelp(b); });
+document.addEventListener('mouseout', e=>{ const b = e.target.closest && e.target.closest('.q'); if(b && !b.contains(e.relatedTarget)) hideHelp(); });
+document.addEventListener('focusin', e=>{ const b = e.target.closest && e.target.closest('.q'); if(b) showHelp(b); });
+document.addEventListener('focusout', e=>{ if(e.target.closest && e.target.closest('.q')) hideHelp(); });
+document.addEventListener('click', e=>{ const b = e.target.closest && e.target.closest('.q'); if(b){ e.preventDefault(); e.stopPropagation(); if(helpFor === b && !helpTip.hidden) hideHelp(); else showHelp(b); } else if(helpFor) hideHelp(); }, true);
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape') hideHelp(); });
+window.addEventListener('scroll', hideHelp, {passive:true, capture:true});
 
 /* ---------- boot ---------- */
 function parseHash(){ const m = location.hash.match(/^#([a-z0-9]+)-(\d+)$/); return m ? {fz:m[1], g:+m[2]} : null; }
